@@ -12,11 +12,11 @@ class Transaction extends Model
     use HasFactory;
     use SoftDeletes;
     protected $guarded = ['id', 'created_at', 'updated_at'];
-    protected $fillable = [ 'title', 'description' , 'amount', 'currency','type','date','start_date','end_date','category_id','created_by','frequency','Paid'];
+    protected $fillable = ['email', 'title', 'description' , 'amount', 'currency','type','date','start_date','end_date','category_id','admin_id','frequency','Paid','updated_by'];
     public function admins()
     {
        return $this->belongsToMany(Admin::class, 'admins_transactions')
-                    ->withPivot('created_by', 'updated_by', 'deleted_by')
+                    ->withPivot('admin_id', 'updated_by', 'deleted_by')
                     ->withTimestamps();
 
     }
@@ -24,6 +24,11 @@ class Transaction extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+ 
+    public function created_by_admin()
+    {
+        return $this->belongsTo(Admin::class, 'admin_id');
     }
 
 }

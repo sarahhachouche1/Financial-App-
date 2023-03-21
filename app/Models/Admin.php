@@ -11,16 +11,17 @@ class Admin extends Model
 {
     use HasApiTokens, HasFactory,SoftDeletes;
        protected $fillable = [
-    'name',
-    'email',
-    'password',
-    'image',
-    'isSuperAdmin'
-];
+         'name',
+         'email',
+         'password',
+         'image',
+         'isSuperAdmin',
+         'hide'
+        ];
     public function transactions()
     {
         return $this->belongsToMany(Transaction::class)
-                    ->withPivot('created_by', 'updated_by', 'deleted_by')
+                    ->withPivot('admin_id', 'updated_by', 'deleted_by')
                     ->withTimestamps();
     }
     public function profits_goals()
@@ -33,3 +34,4 @@ class Admin extends Model
     }
 
 }
+?>

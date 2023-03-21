@@ -12,7 +12,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-       $schedule->command('calculate:net-profit')->daily();
+       $schedule->command('calculate:net-profit')->cron('0 * * * 1-5');;
     }
 
     /**
@@ -25,3 +25,4 @@ class Kernel extends ConsoleKernel
         require base_path('routes/console.php');
     }
 }
+?>

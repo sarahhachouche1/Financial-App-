@@ -25,7 +25,7 @@ return new class extends Migration
         $table->string('email', 255)->nullable();
         $table->boolean('Paid')->default(0);
         $table->timestamps();
-        $table->unsignedBigInteger('category_id')->constrained();
+        $table->unsignedBigInteger('category_id')->nullable();
         $table->foreign('category_id')->references('id')->on('categories');
         $table->softDeletes();
     });

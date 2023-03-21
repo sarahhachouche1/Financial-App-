@@ -6,6 +6,7 @@ use App\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class AuthController extends Controller
 {
@@ -16,22 +17,23 @@ class AuthController extends Controller
             'password' => 'required|string|confirmed',
             'isSuperAdmin' => 'nullable|boolean'
         ]);
-
-        $user = Admin::create([
+        $image_path=$request->file('image')->store('public/images');;
+         $user = Admin::create([
             'name' => $fields['name'],
             'email' => $fields['email'],
             'password' => bcrypt($fields['password']),
-            'isSuperAdmin' => $fields['isSuperAdmin'] ?? 0
+            'isSuperAdmin' => $fields['isSuperAdmin'] ?? 0,
+            'image' => $image_path,
+          
         ]);
 
         $token = $user->createToken('Batatatoken')->plainTextToken;
-
+        
         $response = [
             'user' => $user,
             'token' => $token
         ];
-
-        return response($response, 201);
+        return response()->json(['message' =>$response], 201);
     }
 
     public function login(Request $request) {
@@ -48,6 +50,11 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('myapptoken')->plainTextToken;
+        
+        $image = file_get_contents(storage_path('app/' . $user->image));
+        $encodedImage = base64_encode($image);
+        unset($user->image_path);
+        $user->image = $encodedImage;
 
         $response = [
             'user' => $user,
@@ -57,12 +64,13 @@ class AuthController extends Controller
         return response($response, 201);
     }
 
-    public function logout(Request $request) {
+   /* public function logout(Request $request) {
         auth()->user()->tokens()->delete();
 
         return [
             'message' => 'Logged out'
         ];
-    }
+    }*/
 }
 
+?>

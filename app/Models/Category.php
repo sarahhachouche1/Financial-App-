@@ -13,7 +13,8 @@ class Category extends Model
     use SoftDeletes;
     protected $fillable = [
              'name',
-             'type'
+             'type',
+             'created_by',
 ];
     public function transactions()
     {

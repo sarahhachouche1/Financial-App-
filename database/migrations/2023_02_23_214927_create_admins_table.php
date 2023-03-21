@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('password',125);
             $table->string('image')->nullable();
             $table->boolean('isSuperAdmin')->default(0);
+            $table->boolean('hide')->default(0);
             $table->softDeletes();
             $table->rememberToken();
             $table->timestamps('');

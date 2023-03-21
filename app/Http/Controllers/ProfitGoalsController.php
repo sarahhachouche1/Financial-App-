@@ -4,33 +4,20 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-
+use App\Models\Profit_Goal;
+use App\Models\Category;
 class ProfitGoalsController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(): Response
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        // Validate the incoming request data
         $validatedData = $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'goal_amount' => 'required|numeric',
         ]);
      
-        $profitGoal = new ProfitGoal;
+        $profitGoal = new Profit_Goal;
         $profitGoal->fill($validatedData);
-
-        $profitGoal->created_by = Auth::id();
         $profitGoal->save();
         return response()->json([
             'message' => 'Profit goal created successfully',
@@ -41,24 +28,31 @@ class ProfitGoalsController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id): Response
-    {
-        //
-    }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id): Response
+    public function CalculateProfit()
     {
-        //
-    }
+        $mostRecentProfitGoal = Profit_Goal::latest()->first();
+        $start_date = $mostRecentProfitGoal->start_date;
+        $end_date = $mostRecentProfitGoal->end_date;
+        $profit_goal=$mostRecentProfitGoal->goal_ammount;
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id): Response
-    {
-        //
+        $income = Category::where('type', 'income')
+        ->with('transactions')
+        ->whereHas('transactions', function ($query) use ($start_date, $end_date) {
+          $query->whereBetween('created_at', [$start_date, $end_date]);
+        })
+        ->sum('transactions.amount');
+
+       $expenses = Category::where('type', 'expense')
+        ->with('transactions')
+        ->whereHas('transactions', function ($query) use ($start_date, $end_date) {
+        $query->whereBetween('created_at', [$start_date, $end_date]);
+       })
+       ->sum('transactions.amount');
+   
+       $net_profit = $income - $expenses;
+       $percentage= ($net_profit*100)/$profit_goal;
+       return $percentage;
     }
 }
+

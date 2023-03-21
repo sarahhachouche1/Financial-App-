@@ -1,14 +1,12 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use App\Models\Transaction;
+use App\Models\Admin;
 use App\Models\Category;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\AutomaticEmail;
 use Carbon\Carbon;
 use App\Jobs\SendEmailJob;
 
@@ -18,10 +16,39 @@ class TransactionController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
-    {
-        return Transaction::all();
+
+     public function index()
+{
+    $transactions = Transaction::all();
+    error_log("dummy");
+    $result = [];
+
+    foreach ($transactions as $transaction) {
+        $category = $transaction->category->name;
+        $type = $transaction->category->type;
+        $created_by = optional($transaction->admins->first())->pivot->admin_id;
+        $name = Admin::find($created_by)->name;
+
+        $data = [
+            'id' => $transaction->id,
+            'category' => $category,
+            'title' => $transaction->title,
+            'amount' => number_format($transaction->amount, 4),
+            'type' => $type . "  ". $transaction->type,
+            'date' => $transaction->date,
+            'paid' => $transaction->Paid,
+            'created_by' => $name
+        ];
+        $result[] = $data;
     }
+
+    return response($result)
+    ;
+}
+
+
+    
+       
 
     /**
      * Store a newly created resource in storage.
@@ -35,19 +62,31 @@ class TransactionController extends Controller
          'currency' => 'required|max:4',
          'type' => 'required|in:fixed,recurring',
          'category_id' => 'required|exists:categories,id',
+         'email' => 'nullable|sarahhachouche7@gmail.com'
        ];
-
+       $currency = $request->input('currency');
+       $amount = $request->input('amount');
+   
+       if ($currency == 'LL') {
+           $amount = $amount / 100000;   
+       } elseif ($currency == 'Euro') {
+               $amount = $amount * 1.18;       
+       } 
        if ($request->input('type') === 'recurring') {
             $rules['start_date'] = 'required|date|after_or_equal:today';
             $rules['end_date'] = 'required|after_or_equal:start_date';
             $rules['frequency'] = 'required|in:weekly,monthly,yearly';
-            $rules['date'] = 'nullable';
          } else {
           $rules['start_date'] = 'nullable';
           $rules['end_date'] = 'nullable';
           $rules['frequency'] ='nullable';
-          $rules['date'] = 'required|date|before_or_equal:today';
+          $rules['date'] = 'required|date|after_or_equal:today';
        }
+       $email = $request->input('email');
+       
+if (!$request->has('email') || is_null($email)) {
+     $email='sarahhachouche7@gmail.com';
+}
         $validatedData = $request->validate($rules);
         if ($request->input('type') === 'recurring') {
             $transaction = new Transaction([
@@ -60,10 +99,10 @@ class TransactionController extends Controller
              'start_date' => $validatedData['start_date'],
              'end_date' => $validatedData['end_date'],
              'category_id' => $validatedData['category_id'],
-             'email' =>$request->input('email') ?? 'sarahhachouche7@gmail.com'
+             'email' =>$email,
             ]);
             $details = [
-              'email' => $request->input('email') ?? 'sarahhachouche7@gmail.com',
+              'email' => $email,
                'subject' => 'Payments Reminder',
               'message' => 'This is an automatic email. Please do not forget to make your payments.',
             ];
@@ -80,14 +119,14 @@ class TransactionController extends Controller
                $transaction = new Transaction([
                  'title' => $validatedData['title'],
                  'description' => $validatedData['description'],
-                 'amount' => $validatedData['amount'],
-                 'currency' => $validatedData['currency'],
+                 'amount' => $amount,
+                 'currency' => 'USD',
                  'type' => $validatedData['type'],
                  'frequency' => $validatedData['frequency'],
                   'date' => $currentDate,
                  'start_date' => $validatedData['start_date'],
                  'end_date' => $validatedData['end_date'],
-                 'email' => $request->input('email') ?? 'sarahhachouche7@gmail.com',
+                 'email' => $email,
                  'category_id' => $validatedData['category_id'],
             
               ]);
@@ -148,8 +187,8 @@ class TransactionController extends Controller
               $transaction = new Transaction([
              'title' => $validatedData['title'],
              'description' => $validatedData['description'],
-             'amount' => $validatedData['amount'],
-             'currency' => $validatedData['currency'],
+             'amount' => $amount,
+             'currency' => 'USD',
              'type' => $validatedData['type'],
              'date' => $validatedData['date'],
              'category_id' => $validatedData['category_id'],
@@ -159,9 +198,23 @@ class TransactionController extends Controller
              $transaction->admins()->attach($adminId);
    
           }
-  
+          $category = $transaction->category;
+          $name = $category->name;
+          $type=$category->type;
+          $data = array(
+            'id' => $transaction->id,
+            'category'=>$name,
+            'title' => $transaction->title,
+            'amount' => $transaction->amount,
+            'type' =>$transaction->type . " " . $type,
+            'date' => $transaction->date,
+            'paid' =>$transaction->paid,
+            'created_by' => $request->user()->id,
 
-      return response()->json(['message' => 'Record created successfully', 'data' => $transaction]);
+          );
+          
+
+      return response()->json( ['data' => $data]);
 }
 
    
@@ -195,29 +248,40 @@ class TransactionController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $id): Response
+    public function update(Request $request, $id)
     {
-        $transaction=Transaction::find($id);
-        if ($request->has('type') && $request->input('type') !== $transaction->type) {
-          return response(['error' => 'Updating the "type" attribute is not allowed.'], 403);
-        }
-        if ($request->has('start_date') || $request->has('end_date')) {
-          return response(['error' => 'Updating the "start and end data" attribute is not allowed.'], 403);
-        }
-        $transaction->update($request->all());
-
-        $adminId = $request->user()->id;
-        $transaction->admins()->attach($adminId, [
-            'updated_by' => $adminId,
-        ]);
+  
+         $transaction = Transaction::find($id);
+         if (!$transaction) {
+           return response()->json(['message' => 'Transaction not found'], 404);
+         }
+  
+         $allowedFields = ['title', 'description', 'currency', 'amount', 'email', 'Paid'];
+         $data = $request->only($allowedFields);
+         $data = array_filter($data, function ($value) {
+             return $value !== null;
+         });
+     
+         if (empty($data)) {
+           return response()->json(['message' => 'No fields to update'], 400);
+         }
+  
+         $transaction->update($data); 
         
+         $adminId = $request->user()->id;
+       
+        $transaction->admins()->attach($adminId, [
+          'updated_by' => $adminId,
+       ]);
+        
+       
         return response($transaction, 200);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id): JsonResponse
+    public function destroy(Request $request,$id): JsonResponse
     {
         $transaction= Transaction::find($id);
         
@@ -234,3 +298,4 @@ class TransactionController extends Controller
  
     }
 }
+?>
